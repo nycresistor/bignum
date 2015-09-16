@@ -36,24 +36,30 @@ void next_beat() {
   digitalWrite(LATCH_PIN,HIGH);
   delayMicroseconds(1);
   digitalWrite(LATCH_PIN,LOW);
-  Serial.println(millibeats,DEC);
+  //Serial.println(millibeats,DEC);
 }
 
 int v = 0;
 
 #define BUFSZ 32
-char buf[BUFSZ];
+unsigned char buf[BUFSZ];
 unsigned int idx = 0;
 
 void loadBufVal() {
   unsigned long beats = 0;
-  for (int i = 2; i >= 0; --i) {
+  if (idx > 6) idx = 6;
+  for (int i = 0; i < idx; i++) {
     beats *= 10;
-    beats += (buf[i] - '0');
+    beats += (unsigned char)(buf[i] - '0');
   }
-  //Serial.print(beats,DEC);
-  millibeats = beats * 1000L;
+  unsigned long mult = 1000L;
+  while (idx >= 4) {
+    idx--;
+    mult /= 10L;
+  }
+  millibeats = beats * mult;
   Serial.print(millibeats,DEC);
+  Serial.print(" ");
 }
 
 void loop() {
