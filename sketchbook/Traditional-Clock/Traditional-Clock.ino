@@ -14,9 +14,9 @@ unsigned char digits[16] = {
 
 const unsigned char LATCH_PIN = 4;
 
-volatile unsigned long millibeats = 0;
+volatile unsigned long dsecs = 0;
 
-unsigned long usec_per_mbeat = 86400;
+unsigned long usec_per_decisec = 100000L;
 
 void setup() {
   SPI.begin();
@@ -25,23 +25,32 @@ void setup() {
   pinMode(LATCH_PIN, OUTPUT);
   digitalWrite(LATCH_PIN,LOW);
   Serial.begin(15200);
-  Timer3.initialize(usec_per_mbeat);
-  Timer3.attachInterrupt(next_beat);
+  Timer3.initialize(usec_per_decisec);
+  Timer3.attachInterrupt(next_decisec);
 }
 
-void next_beat() {
-  millibeats++;
-  if (millibeats >= 1000L*1000) { millibeats = 0; }
-  if ((millibeats % 10) != 0) return;
-  unsigned long cb = millibeats / 10;
-  for (int i = 0; i < 5; i++) {
-    SPI.transfer(digits[cb % 10]);
-    cb /= 10;
+void next_decisec() {
+  dsecs++;
+  if (dsecs >= (24L * 60L * 60L * 10L)) {
+    dsecs -= (24L * 60L * 60L * 10L);
+  }
+  unsigned char d[6];
+  unsigned long secs = (dsecs / 10L) % 60L;
+  unsigned long mins = (dsecs / (10L * 60L)) % 60L;
+  unsigned int hrs = (dsecs / (10L * 60L * 60L)) % 24L;  
+  d[5] = secs % 10;
+  d[4] = secs / 10;
+  d[3] = mins % 10;
+  d[2] = mins / 10;
+  d[1] = hrs % 10;
+  d[0] = hrs / 10;
+  
+  for (int i = 0; i < 6; i++) {
+    SPI.transfer(digits[d[i]]);
   }
   digitalWrite(LATCH_PIN,HIGH);
   delayMicroseconds(1);
   digitalWrite(LATCH_PIN,LOW);
-  //Serial.println(millibeats,DEC);
 }
 
 int v = 0;
@@ -50,20 +59,14 @@ int v = 0;
 unsigned char buf[BUFSZ];
 unsigned int idx = 0;
 
+long ctv(unsigned char c) { return (c - '0'); }
+
 void loadBufVal() {
-  unsigned long beats = 0;
-  if (idx > 6) idx = 6;
-  for (int i = 0; i < idx; i++) {
-    beats *= 10;
-    beats += (unsigned char)(buf[i] - '0');
-  }
-  unsigned long mult = 1000L;
-  while (idx >= 4) {
-    idx--;
-    mult /= 10L;
-  }
-  millibeats = beats * mult;
-  Serial.print(millibeats,DEC);
+  unsigned long hr = (ctv(buf[0]) * 10) + ctv(buf[1]);
+  unsigned long min = (ctv(buf[2]) * 10) + ctv(buf[3]);
+  unsigned long sec = (ctv(buf[4]) * 10) + ctv(buf[5]);
+  dsecs = (hr * 60L * 60L * 10L) + (min * 60L * 10L) + (sec * 10L);
+  Serial.print(dsecs,DEC);
   Serial.print(" ");
 }
 
